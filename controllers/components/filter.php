@@ -20,35 +20,29 @@ along with CakePHP Filter Plugin. If not, see <http://www.gnu.org/licenses/>.
  * @property RequestHandlerComponent $RequestHandler
  * @property SessionComponent $Session
  */
-class FilterComponent extends Object
-{
+class FilterComponent extends Object {
 	var $components = array('RequestHandler', 'Session');
 
 	var $settings = array();
 	var $nopersist = array();
 	var $formData = array();
 
-	function initialize(&$controller, $settings)
-	{
-		if (!isset($controller->filters))
-		{
+	function initialize(&$controller, $settings) {
+		if (!isset($controller->filters)) {
 			return;
 		}
 
 		$this->__updatePersistence($controller, $settings);
 		$this->settings[$controller->name] = $controller->filters;
 
-		if (!isset($this->settings[$controller->name][$controller->action]))
-		{
+		if (!isset($this->settings[$controller->name][$controller->action])) {
 			return;
 		}
 
 		$settings = $this->settings[$controller->name][$controller->action];
 
-		foreach ($settings as $model => $filter)
-		{
-			if (!isset($controller->$model))
-			{
+		foreach ($settings as $model => $filter) {
+			if (!isset($controller->$model)) {
 				trigger_error(sprintf(__('Filter model not found: %s', true), $model));
 				continue;
 			}
@@ -57,24 +51,20 @@ class FilterComponent extends Object
 		}
 	}
 
-	function startup(&$controller)
-	{
-		if (!isset($this->settings[$controller->name][$controller->action]))
-		{
+	function startup(&$controller) {
+		if (!isset($this->settings[$controller->name][$controller->action])) {
 			return;
 		}
 
 		$settings = $this->settings[$controller->name][$controller->action];
 
-		if (!in_array('Filter.Filter', $controller->helpers))
-		{
+		if (!in_array('Filter.Filter', $controller->helpers)) {
 			$controller->helpers[] = 'Filter.Filter';
 		}
 
 		$sessionKey = sprintf('FilterPlugin.Filters.%s.%s', $controller->name, $controller->action);
 
-		if (!$this->RequestHandler->isPost() || !isset($controller->data['Filter']['filterFormId']))
-		{
+		if (!$this->RequestHandler->isPost() || !isset($controller->data['Filter']['filterFormId'])) {
 			$persistedData = array();
 
 			if ($this->Session->check($sessionKey))
@@ -160,7 +150,11 @@ class FilterComponent extends Object
 						$options['value'] = $this->formData[$fieldModel][$fieldName];
 					}
 				}
-
+				
+				if(!isset($options['value']) && isset($settings['default'])) {
+					$options['value'] = $settings['default'];				
+				}
+				
 				if (isset($settings['inputOptions']))
 				{
 					if (!is_array($settings['inputOptions']))
@@ -208,14 +202,18 @@ class FilterComponent extends Object
 
 						if (isset($settings['selector']))
 						{
-							if (!method_exists($workingModel, $settings['selector']))
-							{
-								trigger_error(sprintf(__('Selector method "%s" not found in model "%s" for field "%s"!', true), $settings['selector'], $fieldModel, $fieldName));
-								return;
+							if($settings['selector'] === false) {
+								$options['options']	= $selectOptions;
+							} else {
+								if (!method_exists($workingModel, $settings['selector']))
+								{
+									trigger_error(sprintf(__('Selector method "%s" not found in model "%s" for field "%s"!', true), $settings['selector'], $fieldModel, $fieldName));
+									return;
+								}
+	
+								$selectorName = $settings['selector'];
+								$options['options'] = $workingModel->$selectorName($selectOptions);
 							}
-
-							$selectorName = $settings['selector'];
-							$options['options'] = $workingModel->$selectorName($selectOptions);
 						}
 						else
 						{
@@ -241,11 +239,6 @@ class FilterComponent extends Object
 							$options['checked'] = !!$options['value'];
 							unset($options['value']);
 						}
-						else if (isset($settings['default']))
-						{
-							$options['checked'] = !!$settings['default'];
-						}
-
 						$viewFilterParams[] = array
 							(
 								'name' => $field,
